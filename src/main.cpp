@@ -1,6 +1,6 @@
 #include <Arduino.h>
 
-#define SEND_PWM_BY_TIMER
+// #define SEND_PWM_BY_TIMER
 
 /**
  * Required.
@@ -14,13 +14,13 @@
  * Connected to a momentary switch, where one side is grounded and the other side is this pin.
  * Will be connected to the device via an internal pullup resistor, so no additional resistors are required.
  */
-#define FIRE_BUTTON_PIN 17
+#define FIRE_BUTTON_PIN 7
 
 /**
  * Optional (but highly recommended or else your device cannot fire).
  * Emits IR signals at 38Khz using the Sony protocol each time FIRE_BUTTON_PIN is triggered.
  */
-#define FIRE_IR_SEND_PIN 16
+#define FIRE_IR_SEND_PIN 6
 
 /**
  * Required if FIRE_BUTTON_PIN is set, otherwise not required.
@@ -35,14 +35,14 @@
  * Can wire multiple IR Receivers in parallel all to this pin.
  * Recommended to include a capacitor in the circuit (e.g. 10uF) as per https://web.archive.org/web/20161210114703/http://www.lasertagparts.com/mtsensors.htm.
  */
-// #define HIT_IR_RECEIVE_PIN 4
+#define HIT_IR_RECEIVE_PIN 9
 
 /**
  * Optional.
  * Flashes for FIRE_STATUS_LED_DURATION_MILLIS each time FIRE_BUTTON_PIN is triggered.
  * Defauts to LOW when off, and set to HIGH to turn LED on.
  */
-// #define FIRE_STATUS_LED_PIN 17
+#define FIRE_STATUS_LED_PIN 5
 #define FIRE_STATUS_LED_DURATION_MILLIS 100
 
 /**
@@ -50,10 +50,10 @@
  * Flashes for HIT_STATUS_LED_DURATION_MILLIS each time the device registers a hit on HIT_IR_RECEIVE_PIN.
  * Defauts to LOW when off, and set to HIGH to turn LED on.
  */
-// #define HIT_STATUS_LED_PIN 7
+#define HIT_STATUS_LED_PIN 4
 #define HIT_STATUS_LED_DURATION_MILLIS 200
 
-// #define SPEAKER_PIN 9
+#define SPEAKER_PIN 8
 
 #define DECODE_SONY
 
@@ -192,7 +192,7 @@ void setup() {
   #endif
 
   #ifdef FIRE_IR_SEND_PIN
-  IrSender.begin(FIRE_IR_SEND_PIN, LED_BUILTIN);
+  IrSender.begin(FIRE_IR_SEND_PIN, true, LED_BUILTIN);
   #endif
 }
 
