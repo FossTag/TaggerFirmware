@@ -14,13 +14,13 @@
  * Connected to a momentary switch, where one side is grounded and the other side is this pin.
  * Will be connected to the device via an internal pullup resistor, so no additional resistors are required.
  */
-#define FIRE_BUTTON_PIN 7
+#define FIRE_BUTTON_PIN 6
 
 /**
  * Optional (but highly recommended or else your device cannot fire).
  * Emits IR signals at 38Khz using the Sony protocol each time FIRE_BUTTON_PIN is triggered.
  */
-#define FIRE_IR_SEND_PIN 6
+#define FIRE_IR_SEND_PIN 9
 
 /**
  * Required if FIRE_BUTTON_PIN is set, otherwise not required.
@@ -35,27 +35,23 @@
  * Can wire multiple IR Receivers in parallel all to this pin.
  * Recommended to include a capacitor in the circuit (e.g. 10uF) as per https://web.archive.org/web/20161210114703/http://www.lasertagparts.com/mtsensors.htm.
  */
-#define HIT_IR_RECEIVE_PIN 9
+#define HIT_IR_RECEIVE_PIN 8
 
 /**
  * Optional.
- * Flashes for FIRE_STATUS_LED_DURATION_MILLIS each time FIRE_BUTTON_PIN is triggered.
- * Defauts to LOW when off, and set to HIGH to turn LED on.
+ * Flashes for STATUS_FIRE_LED_DURATION_MILLIS each time FIRE_BUTTON_PIN is triggered.
+ * Flashes for STATUS_HIT_LED_DURATION_MILLIS each time player is hit.
+ * TODO: Defaults to the colour of the players team.
  */
-#define FIRE_STATUS_LED_PIN 5
-#define FIRE_STATUS_LED_DURATION_MILLIS 100
+#define STATUS_LED_R_PIN 3
+#define STATUS_LED_G_PIN 10
+#define STATUS_LED_B_PIN 11
 
-/**
- * Optional.
- * Flashes for HIT_STATUS_LED_DURATION_MILLIS each time the device registers a hit on HIT_IR_RECEIVE_PIN.
- * Defauts to LOW when off, and set to HIGH to turn LED on.
- */
-#define HIT_STATUS_LED_PIN 4
-#define HIT_STATUS_LED_DURATION_MILLIS 200
 
-#define SPEAKER_PIN 8
+#define SPEAKER_PIN 7
 
 #define DECODE_SONY
+#define NO_LED_FEEDBACK_CODE
 
 #ifdef SPEAKER_PIN
 /**
@@ -66,8 +62,13 @@
 #define IR_USE_AVR_TIMER1
 #endif
 
+#if defined STATUS_LED_R_PIN && defined STATUS_LED_G_PIN && defined STATUS_LED_B_PIN
+#define HAS_STATUS_LED
+#endif
+
 #include <IRremote.hpp>
 #include <Sound.h>
+#include <Colour.h>
 
 /**
  * Used for both debouncing fires, limiting the rate of fire, and also used to only
@@ -126,31 +127,18 @@ void printConfig() {
   #endif
 
   Serial.println("");
-  Serial.println("FIRE_STATUS_LED_PIN");
-  #ifdef FIRE_STATUS_LED_PIN
-  Serial.print("  Pin: ");
-  Serial.println(FIRE_STATUS_LED_PIN);
-  Serial.println("  Wiring: Cathode wired to this pin, other to ground.");
-  Serial.print("  Config: Will turn on for ");
-  Serial.print(FIRE_STATUS_LED_DURATION_MILLIS);
-  Serial.println("ms after firing.");
+  Serial.println("FIRE_STATUS_LED_[R, G, B]_PIN");
+  #ifdef HAS_STATUS_LED
+  Serial.print("  Pins (R, G, B): ");
+  Serial.print(STATUS_LED_R_PIN);
+  Serial.print(", ");
+  Serial.print(STATUS_LED_R_PIN);
+  Serial.print(", ");
+  Serial.println(STATUS_LED_R_PIN);
+  Serial.println("  Wiring: Connect to a common cathode RGB LED.");
   #else
   Serial.println("  Not configured.");
-  Serial.println("  Will not show visual feedback when getting hit.");
-  #endif
-
-  Serial.println("");
-  Serial.println("HIT_STATUS_LED_PIN");
-  #ifdef HIT_STATUS_LED_PIN
-  Serial.print("  Pin: ");
-  Serial.println(HIT_STATUS_LED_PIN);
-  Serial.println("  Wiring: Cathode wired to this pin, other to ground.");
-  Serial.print("  Config: Will turn on for ");
-  Serial.print(HIT_STATUS_LED_DURATION_MILLIS);
-  Serial.println("ms after being hit by another player.");
-  #else
-  Serial.println("  Not configured.");
-  Serial.println("  Will not show visual feedback when getting hit.");
+  Serial.println("  Will not show visual feedback when getting hit or firing, and will not be able to show team colours.");
   #endif
 
   Serial.println("");
@@ -169,22 +157,20 @@ void printConfig() {
   Serial.println("");
 }
 
+#ifdef HAS_STATUS_LED
+RGBLed statusLed = RGBLed(STATUS_LED_R_PIN, STATUS_LED_G_PIN, STATUS_LED_B_PIN);
+#endif
+
 void setup() {
   Serial.begin(115200);
   printConfig();
 
+  #ifdef HAS_STATUS_LED
+  statusLed.setDefaultColour(0x00FF00);
+  #endif
+
   #ifdef FIRE_BUTTON_PIN
   pinMode(FIRE_BUTTON_PIN, INPUT_PULLUP);
-  #endif
-
-  #ifdef FIRE_STATUS_LED_PIN
-  pinMode(FIRE_STATUS_LED_PIN, OUTPUT);
-  digitalWrite(FIRE_STATUS_LED_PIN, LOW);
-  #endif
-
-  #ifdef HIT_STATUS_LED_PIN
-  pinMode(HIT_STATUS_LED_PIN, OUTPUT);
-  digitalWrite(HIT_STATUS_LED_PIN, LOW);
   #endif
 
   #ifdef HIT_IR_RECEIVE_PIN
@@ -192,7 +178,7 @@ void setup() {
   #endif
 
   #ifdef FIRE_IR_SEND_PIN
-  IrSender.begin(FIRE_IR_SEND_PIN, true, LED_BUILTIN);
+  IrSender.begin(FIRE_IR_SEND_PIN, false, 0);
   #endif
 }
 
@@ -255,8 +241,8 @@ void loop() {
     IrSender.sendSony(MY_ADDRESS, 0x1, 0);
     #endif
 
-    #ifdef FIRE_STATUS_LED_PIN
-    digitalWrite(FIRE_STATUS_LED_PIN, HIGH);
+    #ifdef HAS_STATUS_LED
+    statusLed.flash(0xFFFFFF, 1, RGBLed::FLASH_FAST);
     #endif
 
     #ifdef SPEAKER_PIN
@@ -273,8 +259,8 @@ void loop() {
 
     health -= 30;
 
-    #ifdef HIT_STATUS_LED_PIN
-    digitalWrite(HIT_STATUS_LED_PIN, HIGH);
+    #ifdef HAS_STATUS_LED
+    statusLed.flash(0xFF0000, 1, RGBLed::FLASH_FAST);
     #endif
 
     #ifdef SPEAKER_PIN
@@ -287,19 +273,12 @@ void loop() {
   }
   #endif
 
-  #ifdef FIRE_STATUS_LED_PIN
-  if (millis() - lastFireTime > FIRE_STATUS_LED_DURATION_MILLIS) {
-    digitalWrite(FIRE_STATUS_LED_PIN, LOW);
-  }
-  #endif
-
-  #ifdef HIT_STATUS_LED_PIN
-  if (millis() - lastHitTime > HIT_STATUS_LED_DURATION_MILLIS) {
-    digitalWrite(HIT_STATUS_LED_PIN, LOW);
-  }
-  #endif
-
   #ifdef SPEAKER_PIN
   Sound::process(SPEAKER_PIN);
   #endif
+  
+  #ifdef HAS_STATUS_LED
+  statusLed.process();
+  #endif
+  
 }
